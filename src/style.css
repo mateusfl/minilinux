@@ -1,0 +1,76 @@
+:root {
+  --bg: #000;
+  --surface: #0a0a0a;
+  --line: #1f1f1f;
+  --fg: #ededed;
+  --muted: #8f8f8f;
+  --faint: #555;
+  --hover: #1a1a1a;
+  --ok: #45d483;
+  --warn: #f5a524;
+  --err: #ff6166;
+  --mono: ui-monospace, "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+  --bar-h: 26px;
+}
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--fg); font-family: var(--mono); }
+
+.app { position: fixed; inset: 0; display: flex; flex-direction: column; }
+
+.stage { flex: 1; min-height: 0; padding: 8px 12px 4px; }
+
+/* wterm usa a própria folha de estilo; aqui só cores, fonte e tamanho. */
+.term.wterm {
+  width: 100%; height: 100%; padding: 0; border-radius: 0; box-shadow: none;
+  scrollbar-gutter: stable; scrollbar-width: thin; scrollbar-color: #333 transparent;
+  --term-font-family: var(--mono);
+  --term-font-size: 14px;
+  --term-row-height: 17px;
+  --term-fg: var(--fg); --term-bg: var(--bg); --term-cursor: var(--fg);
+  --term-selection-bg: rgb(255 255 255 / 22%);
+  --term-color-0: #333333; --term-color-1: #ff6166; --term-color-2: #45d483; --term-color-3: #f5a524;
+  --term-color-4: #52a8ff; --term-color-5: #c472fb; --term-color-6: #0ac7b4; --term-color-7: #d4d4d4;
+  --term-color-8: #737373; --term-color-9: #ff8589; --term-color-10: #7ee2a8; --term-color-11: #ffc96b;
+  --term-color-12: #8ec5ff; --term-color-13: #d9a6fd; --term-color-14: #5fe0d0; --term-color-15: #ffffff;
+}
+
+/* A barra inferior, estilo tmux. */
+.bar {
+  display: flex; align-items: stretch; gap: 2px;
+  height: var(--bar-h); padding-right: 4px;
+  border-top: 1px solid var(--line); background: var(--surface);
+  font-size: 12px; line-height: 1; user-select: none;
+}
+.brand { display: flex; align-items: center; gap: 6px; padding: 0 10px; }
+.faint { color: var(--faint); }
+.spacer { flex: 1; }
+
+.seg {
+  display: inline-flex; align-items: center; padding: 0 7px;
+  white-space: nowrap; color: var(--muted);
+}
+.seg.on { background: var(--fg); color: #000; }
+.btn {
+  border: 0; background: none; font: inherit; cursor: pointer;
+  transition: background-color 120ms, color 120ms;
+}
+.btn:hover:not(:disabled) { background: var(--hover); color: var(--fg); }
+.btn:focus-visible { outline: 1px solid var(--fg); outline-offset: -1px; }
+.btn:disabled { color: var(--faint); cursor: default; }
+
+.status { display: inline-flex; align-items: center; gap: 6px; padding: 0 8px; color: var(--muted); }
+.status .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--warn); }
+.status.running { color: var(--fg); }
+.status.running .dot { background: var(--ok); }
+.status.stopped .dot { background: var(--faint); }
+.status.error { color: var(--err); }
+.status.error .dot { background: var(--err); }
+.status:is(.idle, .download, .compile, .boot) .dot { animation: pulse 1s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: 0.3; } }
+
+@media (max-width: 640px) {
+  .stage { padding: 6px 6px 2px; }
+  .seg.muted { display: none; }
+}

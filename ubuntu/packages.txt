@@ -1,0 +1,26 @@
+# Pacotes instalados no disco do Ubuntu no build (bun run build:disk), um por
+# linha. Só do repositório "main" do Ubuntu 24.04 (riscv64): veja em
+# https://packages.ubuntu.com/noble/ se o pacote está em "main".
+
+# editores
+nano
+vim-tiny
+
+# ler e explorar arquivos
+less
+file
+
+# manuais (man ls, man grep...) e o manual geral do Linux
+man-db
+manpages
+
+# processos (ps e top já vêm no sistema; htop trava no unkernel)
+psmisc
+
+# compactação
+zip
+unzip
+
+# utilidades
+bash-completion
+bc

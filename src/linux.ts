@@ -5,8 +5,7 @@
 // elemento onde o terminal é desenhado.
 import "@wterm/dom/src/terminal.css";
 import { WTerm } from "@wterm/dom";
-import { checkSupport, createKernel, type BootProgress, type KernelInstance } from "unkernel/web";
-import { seedFiles } from "./seed.ts";
+import { checkSupport, createKernel, openHttpDisk, type BootProgress, type KernelInstance } from "unkernel/web";
 
 export type Phase = "idle" | "download" | "compile" | "boot" | "running" | "stopped" | "error";
 
@@ -16,11 +15,9 @@ export interface LinuxState {
   detail: string;
   memoryMiB: number;
   uptimeMs: number;
-  cols: number;
-  rows: number;
 }
 
-let state: LinuxState = { phase: "idle", detail: "", memoryMiB: 0, uptimeMs: 0, cols: 0, rows: 0 };
+let state: LinuxState = { phase: "idle", detail: "", memoryMiB: 0, uptimeMs: 0 };
 const listeners = new Set<() => void>();
 
 function set(patch: Partial<LinuxState>) {
@@ -65,32 +62,37 @@ export async function boot(el: HTMLElement) {
   term = new WTerm(el, {
     scrollbackLines: 5000,
     cursorBlink: true,
-    onData: (d) => send(d),
+    // O console do kernel (hvc) usa Ctrl-O como prefixo de SysRq e o engole;
+    // dois seguidos chegam como um Ctrl-O de verdade (o "salvar" do nano).
+    onData: (d) => send(d.replaceAll("\x0f", "\x0f\x0f")),
     onBinary: (d) => send(d),
-    onResize: (cols, rows) => {
-      vm?.resize(cols, rows); // o programa em primeiro plano recebe SIGWINCH
-      set({ cols, rows });
-    },
+    onResize: (cols, rows) => vm?.resize(cols, rows), // o programa em primeiro plano recebe SIGWINCH
   });
   // init() carrega o parser do wterm (um wasm pequeno); só então dá para escrever.
   await term.init();
   term.focus();
-  set({ cols: term.cols, rows: term.rows });
 
   try {
     const support = await checkSupport();
     if (!support.ok) throw new Error(`Navegador sem suporte: ${support.problems.join("; ")}`);
 
+    // O disco do Ubuntu (vendor/ubuntu.ext4), lido sob demanda. As escritas
+    // ficam só na memória (persist: false): cada carga da página começa limpa.
+    const ubuntu = await openHttpDisk("/ubuntu.ext4", { persist: false });
+
     vm = await createKernel({
-      kernel: "/unkernel-alpine.wasm", // servido pelo server.ts a partir de node_modules
+      kernel: "/unkernel.wasm", // servido pelo server.ts a partir de node_modules
+      initrd: null, // ignora o Alpine embutido no kernel...
+      disks: [ubuntu], // ...e dá boot no Ubuntu, que vira /dev/wda
+      cmdline: "console=hvc0 root=/dev/wda rw",
+      // Sem `net`: o guest não tem rede.
       consoleSize: { cols: term.cols, rows: term.rows },
       onOutput: (bytes) => term?.write(bytes),
       onProgress,
     });
-    // Para inspecionar pelo DevTools: `vm.exec("uname", ["-a"])`.
+    // Para inspecionar pelo DevTools (ex.: `vm.stats()`).
     (globalThis as { vm?: KernelInstance }).vm = vm;
     set({ phase: "running", detail: "", memoryMiB: vm.memoryMiB });
-    void seedFiles(vm);
 
     const timer = setInterval(() => set({ uptimeMs: vm?.stats().uptimeMs ?? 0 }), 1000);
     const exit = await vm.exited;

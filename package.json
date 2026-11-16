@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "bun --watch server.ts",
     "start": "bun server.ts",
-    "typecheck": "bun check"
+    "typecheck": "bun check",
+    "build:disk": "bash ubuntu/build.sh"
   },
   "devDependencies": {
     "@types/bun": "^1.4.4",

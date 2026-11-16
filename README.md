@@ -38,3 +38,19 @@ Tudo roda na aba de cada pessoa: o servidor só entrega arquivos estáticos.
   disco do Ubuntu como `/`, sem rede. "Reiniciar" grava o disco e recarrega;
   "Reiniciar limpando o disco" apaga o overlay antes.
 - `src/App.tsx`: o terminal ocupando a tela e a barra inferior.
+
+## Deploy (Docker / Dokploy)
+
+```sh
+docker build -t mini-linux .    # ~1,5 min; precisa de rede (baixa o Ubuntu e roda o apt)
+docker run -p 3000:3000 mini-linux
+```
+
+O `Dockerfile` gera o disco num estágio de build e o leva compactado
+(`tar -S`, ~70 MB) para a imagem final, que o extrai na subida do container
+(o `COPY` expandiria o arquivo esparso para 1 GB). O `tar` preserva o mtime,
+então o ETag do disco é o mesmo em cada container: redeploys sem mudança no
+disco não apagam o que os alunos salvaram; um build com disco novo apaga.
+
+No Dokploy: aplicação com build por `Dockerfile`, porta 3000. O build roda a
+CLI do unkernel com `--mem 1024`, então precisa de ~1 GB de RAM livre.

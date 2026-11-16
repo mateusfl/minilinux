@@ -39,7 +39,9 @@ function serveDisk(req: Request) {
 
 const server = Bun.serve({
   port: Number(process.env.PORT ?? 3000),
-  development: { hmr: false, console: true },
+  // Em produção (NODE_ENV=production, o Dockerfile) o Bun empacota e
+  // minifica o frontend uma vez na subida; em dev, a cada pedido.
+  development: process.env.NODE_ENV === "production" ? false : { hmr: false, console: true },
   routes: {
     "/": index,
     "/unkernel.wasm": () => new Response(kernel, { headers: { "content-type": "application/wasm" } }),

@@ -116,7 +116,11 @@ mkdir -p /run/lock
 hostname -F /etc/hostname 2>/dev/null
 kw-net
 . /etc/os-release
-echo "Bem-vindo ao $PRETTY_NAME ($(uname -m)), rodando no seu navegador."
+# Tela limpa (sem sobras do boot) e as boas-vindas.
+printf '\033[H\033[2J\033[3J'
+printf '\033[1mBem-vindo ao mini-linux!\033[0m\n'
+echo "Você está usando o $PRETTY_NAME ($(uname -m)), rodando direto no seu navegador."
+printf 'Digite \033[1mcat README\033[0m para começar.\n\n'
 action=0x4321fedc   # LINUX_REBOOT_CMD_POWER_OFF
 trap 'action=0x4321fedc; stop=1' USR1
 trap 'action=0x01234567; stop=1' USR2   # LINUX_REBOOT_CMD_RESTART

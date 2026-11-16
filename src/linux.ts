@@ -93,14 +93,15 @@ function onProgress(p: BootProgress) {
 }
 
 /**
- * Linha de comando do kernel: o Ubuntu do disco como raiz. O resto faz o
+ * Linha de comando do kernel: o Ubuntu do disco como raiz, sem as mensagens
+ * de boot no console (o init ainda limpa a tela). O resto faz o
  * disco chegar ao IndexedDB em ~2 s depois de cada escrita, em vez dos ~35 s
  * padrão: o journal do ext4 faz commit a cada 1 s e os dados sujos são
  * gravados depois de 1 s. Sem isso, um F5 logo depois de salvar um arquivo
  * o perderia (o navegador não espera um sync no pagehide).
  */
 const CMDLINE = [
-  "console=hvc0",
+  "console=hvc0 quiet", // quiet: só avisos e erros do kernel no console
   "root=/dev/wda rootfstype=ext4 rw rootflags=commit=1",
   "sysctl.vm.dirty_expire_centisecs=100",
   "sysctl.vm.dirty_writeback_centisecs=100",

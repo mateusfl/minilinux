@@ -1,4 +1,4 @@
 Minhas notas
 ------------
 - este arquivo já vem dentro do disco do Ubuntu (ubuntu/rootfs/ no projeto)
-- pode editar à vontade: as mudanças valem até recarregar a página
+- pode editar à vontade: as mudanças ficam salvas no navegador

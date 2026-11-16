@@ -7,20 +7,24 @@ import index from "./index.html";
 const kernel = Bun.file(Bun.resolveSync("unkernel/alpine.wasm", import.meta.dir));
 
 // O disco do Ubuntu, gerado por `bun run build:disk` (ubuntu/build.sh).
-const disk = Bun.file(new URL("./vendor/ubuntu.ext4", import.meta.url));
-if (!(await disk.exists())) {
+const diskPath = new URL("./vendor/ubuntu.ext4", import.meta.url);
+if (!(await Bun.file(diskPath).exists())) {
   console.error("vendor/ubuntu.ext4 não existe: rode `bun run build:disk` antes.");
   process.exit(1);
 }
-const diskTag = `"${disk.size.toString(16)}-${disk.lastModified.toString(16)}"`;
 
 /**
  * O SDK lê o disco sob demanda, em pedaços, com Range requests (só os blocos
  * que o guest toca são baixados): responde 206 com o trecho pedido.
  */
 function serveDisk(req: Request) {
+  // Lido a cada pedido: um `build:disk` com o servidor no ar troca o arquivo.
+  const disk = Bun.file(diskPath);
+  // O navegador guarda as mudanças do aluno como um overlay sobre ESTA imagem;
+  // o ETag a identifica, e o SDK descarta o overlay quando ele muda.
+  const etag = `"${disk.size.toString(16)}-${disk.lastModified.toString(16)}"`;
   const m = /^bytes=(\d+)-(\d*)$/.exec(req.headers.get("range") ?? "");
-  const headers = { "accept-ranges": "bytes", etag: diskTag, "cache-control": "no-cache" };
+  const headers = { "accept-ranges": "bytes", etag, "cache-control": "no-cache" };
   if (!m) return new Response(disk, { headers });
   const start = Number(m[1]);
   const end = Math.min(m[2] ? Number(m[2]) : disk.size - 1, disk.size - 1);

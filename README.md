@@ -29,7 +29,12 @@ Tudo roda na aba de cada pessoa: o servidor só entrega arquivos estáticos.
 - `server.ts`: `Bun.serve` com o `index.html`, o kernel (`/unkernel.wasm`,
   direto de `node_modules/unkernel`) e o disco (`/ubuntu.ext4`, com Range
   requests: o navegador baixa só os blocos que o sistema lê).
+- `src/disk.ts`: o disco com persistência, como no unkernel.dev: as escritas
+  do guest vão para um overlay no IndexedDB, aplicado sobre a imagem na
+  próxima carga. Só uma aba por vez salva (as outras rodam em memória). Uma
+  imagem nova (outro `build:disk`) descarta os overlays salvos, porque não
+  serviriam para ela.
 - `src/linux.ts`: cria o terminal (`@wterm/dom`) e dá boot no kernel com o
-  disco do Ubuntu como `/`. As escritas ficam só na memória, então cada carga
-  da página começa limpa. Sem rede.
+  disco do Ubuntu como `/`, sem rede. "Reiniciar" grava o disco e recarrega;
+  "Reiniciar limpando o disco" apaga o overlay antes.
 - `src/App.tsx`: o terminal ocupando a tela e a barra inferior.

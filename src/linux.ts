@@ -5,7 +5,8 @@
 // elemento onde o terminal é desenhado.
 import "@wterm/dom/src/terminal.css";
 import { WTerm } from "@wterm/dom";
-import { checkSupport, createKernel, openHttpDisk, type BootProgress, type KernelInstance } from "unkernel/web";
+import { checkSupport, createKernel, type BootProgress, type KernelInstance } from "unkernel/web";
+import { openUbuntuDisk, resetUbuntuDisk, type UbuntuDisk } from "./disk.ts";
 
 export type Phase = "idle" | "download" | "compile" | "boot" | "running" | "stopped" | "error";
 
@@ -15,9 +16,15 @@ export interface LinuxState {
   detail: string;
   memoryMiB: number;
   uptimeMs: number;
+  /** As mudanças no disco são salvas no navegador (null: disco ainda não aberto). */
+  persistent: boolean | null;
+  /** Por que não são salvas, quando não são. */
+  diskNotice: string;
+  /** Esta aba pode apagar o disco salvo (não está aberto em outra aba). */
+  canReset: boolean;
 }
 
-let state: LinuxState = { phase: "idle", detail: "", memoryMiB: 0, uptimeMs: 0 };
+let state: LinuxState = { phase: "idle", detail: "", memoryMiB: 0, uptimeMs: 0, persistent: null, diskNotice: "", canReset: false };
 const listeners = new Set<() => void>();
 
 function set(patch: Partial<LinuxState>) {
@@ -35,11 +42,42 @@ export const linuxStore = {
 
 let vm: KernelInstance | null = null;
 let term: WTerm | null = null;
+let ubuntu: UbuntuDisk | null = null;
 let started = false;
+let restarting = false;
 
 /** Manda bytes para o console do guest (o mesmo que digitar no terminal). */
 export const send = (data: string | Uint8Array) => vm?.write(data);
 export const focusTerminal = () => term?.focus();
+
+/**
+ * Pede ao kernel que grave o que está em cache nos discos persistentes e
+ * espera o IndexedDB confirmar (no máximo 3 s). Não depende de nada no guest.
+ */
+const sync = () => (vm && state.phase === "running" ? vm.sync({ timeout: 3000 }) : Promise.resolve(true));
+
+/** Reinicia o sistema recarregando a página; o disco salvo no navegador continua. */
+export async function restart() {
+  if (restarting) return;
+  restarting = true;
+  set({ detail: "salvando o disco" });
+  await sync().catch(() => {});
+  location.reload();
+}
+
+/** Apaga o disco salvo no navegador e reinicia: o sistema volta ao estado inicial. */
+export async function restartClean() {
+  if (restarting || !state.canReset) return;
+  restarting = true;
+  await resetUbuntuDisk(ubuntu);
+  location.reload();
+}
+
+// Aba escondida ou fechando: grava o que estiver pendente.
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") void sync();
+});
+addEventListener("pagehide", () => void sync());
 
 function onProgress(p: BootProgress) {
   if (p.stage === "download") {
@@ -53,6 +91,20 @@ function onProgress(p: BootProgress) {
     set({ phase: "boot", detail: "" });
   }
 }
+
+/**
+ * Linha de comando do kernel: o Ubuntu do disco como raiz. O resto faz o
+ * disco chegar ao IndexedDB em ~2 s depois de cada escrita, em vez dos ~35 s
+ * padrão: o journal do ext4 faz commit a cada 1 s e os dados sujos são
+ * gravados depois de 1 s. Sem isso, um F5 logo depois de salvar um arquivo
+ * o perderia (o navegador não espera um sync no pagehide).
+ */
+const CMDLINE = [
+  "console=hvc0",
+  "root=/dev/wda rootfstype=ext4 rw rootflags=commit=1",
+  "sysctl.vm.dirty_expire_centisecs=100",
+  "sysctl.vm.dirty_writeback_centisecs=100",
+].join(" ");
 
 /** Cria o terminal em `el` e dá boot no Linux. Chamadas repetidas são ignoradas. */
 export async function boot(el: HTMLElement) {
@@ -76,15 +128,17 @@ export async function boot(el: HTMLElement) {
     const support = await checkSupport();
     if (!support.ok) throw new Error(`Navegador sem suporte: ${support.problems.join("; ")}`);
 
-    // O disco do Ubuntu (vendor/ubuntu.ext4), lido sob demanda. As escritas
-    // ficam só na memória (persist: false): cada carga da página começa limpa.
-    const ubuntu = await openHttpDisk("/ubuntu.ext4", { persist: false });
+    // O disco do Ubuntu (vendor/ubuntu.ext4), lido sob demanda, com as
+    // mudanças salvas no IndexedDB (disk.ts).
+    ubuntu = await openUbuntuDisk();
+    set({ persistent: ubuntu.persistent, diskNotice: ubuntu.notice ?? "", canReset: ubuntu.owner });
+    if (ubuntu.notice) term.write(`\x1b[33m[disco] ${ubuntu.notice}\x1b[0m\r\n`);
 
     vm = await createKernel({
       kernel: "/unkernel.wasm", // servido pelo server.ts a partir de node_modules
       initrd: null, // ignora o Alpine embutido no kernel...
-      disks: [ubuntu], // ...e dá boot no Ubuntu, que vira /dev/wda
-      cmdline: "console=hvc0 root=/dev/wda rw",
+      disks: [ubuntu.disk], // ...e dá boot no Ubuntu, que vira /dev/wda
+      cmdline: CMDLINE,
       // Sem `net`: o guest não tem rede.
       consoleSize: { cols: term.cols, rows: term.rows },
       onOutput: (bytes) => term?.write(bytes),

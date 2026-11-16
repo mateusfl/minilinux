@@ -5,8 +5,9 @@ Este é um Ubuntu 24.04 LTS de verdade, rodando inteiro nesta aba do
 navegador: o kernel Linux foi compilado para WebAssembly (unkernel) e
 nada roda num servidor. Você é root.
 
-Tudo o que você mudar fica só na memória desta aba: recarregar a página
-(ou o botão "reiniciar") volta o sistema ao estado inicial.
+Tudo o que você mudar fica salvo neste navegador: dá para recarregar a
+página ou voltar outro dia e continuar de onde parou. Para começar do
+zero, use "Reiniciar > Reiniciar limpando o disco" na barra de baixo.
 
 Para começar:
   ls -la ~/projetos
